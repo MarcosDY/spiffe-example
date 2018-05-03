@@ -10,7 +10,7 @@ The video above shows the aforementioned, simulating the presence of a front-end
 
 ![spiffe-nginx Diagram](spiffe-nginx-diagram.png)
 
-For this integration with SPIFFE, NGINX was modified to natively support the Workload API and get the X.509-SVIDs in a gRPC stream, store them on disk, and signal to load the new credentials when they are available. SPIRE-issued certificates have a one-hour expiry by default, which can be changed with a [ttl parameter](https://github.com/spiffe/spire/blob/master/doc/spire_server.md#spire-server-entry-create) when the entry is registered. The newly created NGINX module handles both receiving (as they are pushed over the stream) and loading certificates (when they are received).
+For this integration with SPIFFE, NGINX was modified to natively support the Workload API and get the X.509-SVIDs in a gRPC stream, process them and push into memory, without storing them to on disk, and signal to load the new credentials when they are available. SPIRE-issued certificates have a one-hour expiry by default, which can be changed with a [ttl parameter](https://github.com/spiffe/spire/blob/master/doc/spire_server.md#spire-server-entry-create) when the entry is registered. The newly created NGINX module handles both receiving (as they are pushed over the stream) and loading certificates (when they are received).
 
 ## Modifications done to get SPIFFE support in NGINX
 
@@ -21,7 +21,7 @@ For this integration with SPIFFE, NGINX was modified to natively support the Wor
 | ngx_http_proxy_module   | Add configuration directives for SPIFFE ID validation of proxied HTTPS servers: <ul><li>`proxy_ssl_spiffe`</li><li>`proxy_ssl_spiffe_accept`</li></ul> |
 | ngx_http_upstream | Accept or reject proxied connections to servers based on allowed SPIFFE IDs for the servers, specified in `proxy_ssl_spiffe_accept`. |
 | ngx_http_request | Accept or reject client connections based on allowed SPIFFE IDs for clients, specified in `ssl_spiffe_accept`. |
-| ngx_http_proxy_module   | New module that interacts with the Workload API to receive X.509-SVIDs in a gRPC stream and store them on disk. Add the following configuration directives to specify the SPIFFE Workload Endpoint address and the paths to store the certificates: <ul><li>`ssl_spiffe_sock`</li><li>`svid_file_path`</li><li>`svid_key_file_path`</li><li>`svid_bundle_file_path`</li></ul> |
+| ngx_http_proxy_module   | New module that interacts with the Workload API to receive X.509-SVIDs in a gRPC stream, process them and push them into nginx context directly wihtout storing them on disk. Add the following configuration directives to specify the SPIFFE Workload Endpoint address and the paths to store the certificates: <ul><li>`ssl_spiffe_sock`</li></ul> |
 
 ## Sample scenario
 
@@ -38,7 +38,7 @@ The SPIRE Agent runs on every node and is responsible for requesting certificate
 
 ## NGINX Configuration
 
-A new set of configuration directives has been added to enable the SPIFFE integration with NGINX. They must be placed under the server block.
+A new configuration directive has been added to enable the SPIFFE integration with NGINX. It must be placed under the server block.
 
 ### Interact with the Workload API
 
@@ -47,15 +47,6 @@ NGINX configuration directives added to interact with the Workload API:
 ```
 # Socket path of SPIRE Agent
 ssl_spiffe_sock /tmp/agent.sock;
-
-# File path to store SVID in PEM format
-svid_file_path /certs/front_end_svid.pem;
-
-# File path to store SVID Private Key in PEM format
-svid_key_file_path /certs/front_end_svid_key.pem;
-
-# File path to store SVID Bundle (CA certificates belonging to the Trust Domain) in PEM format
-svid_bundle_file_path /certs/front_end_svid_bundle.pem;
 ```
 
 ### Control the acceptance of clients in HTTPS servers
@@ -100,20 +91,8 @@ http {
     # Socket path of SPIRE Agent
     ssl_spiffe_sock       /tmp/agent.sock;
 
-    # File path to store SVID in PEM format
-    svid_file_path        /certs/front_end_svid.pem;
-
-    # File path to store SVID Private Key in PEM format
-    svid_key_file_path    /certs/front_end_svid_key.pem;
-
-    # File path to store SVID Bundle (CA certificates belonging to the Trust Domain) in PEM format
-    svid_bundle_file_path /certs/front_end_svid_bundle.pem;
-
     proxy_ssl_verify              on;
-    proxy_ssl_certificate         /certs/front_end_svid.pem;
-    proxy_ssl_certificate_key     /certs/front_end_svid_key.pem;
-    proxy_ssl_trusted_certificate /certs/front_end_svid_bundle.pem;
-
+    
     # Enable or disable validation of SPIFFE ID of proxied HTTPS server
     proxy_ssl_spiffe on;
 
@@ -148,19 +127,9 @@ http {
     # Socket path of SPIRE Agent
     ssl_spiffe_sock       /tmp/agent.sock;
 
-    # File path to store SVID in PEM format
-    svid_file_path        /certs/blog_svid.pem;
-
-    # File path to store SVID Private Key in PEM format
-    svid_key_file_path    /certs/blog_svid_key.pem;
-
-    # File path to store SVID Bundle (CA certificates belonging to the Trust Domain) in PEM format
-    svid_bundle_file_path /certs/blog_svid_bundle.pem;
-
+    # Required to enable ssl
+    ssl on;
     ssl_verify_client on;
-    ssl_certificate         /certs/blog_svid.pem;
-    ssl_certificate_key     /certs/blog_svid_key.pem;
-    ssl_client_certificate  /certs/blog_svid_bundle.pem;
 
     # Enable or disable SPIFFE ID validation of clients in HTTPS servers
     ssl_spiffe on;
@@ -189,7 +158,7 @@ To try this yourself, clone the [spiffe-example](https://github.com/spiffe/spiff
 
 ### Step 1: Build the example
 
-Running `make` from within the [dupin](https://github.com/spiffe/spiffe-example/tree/master/dupin) directory will build a Docker image with everything you need to try this integration. Then, run `make demo` to open the environment where we can interact with NGINX with SPIFFE support. This will show six terminals: `spire-server`, `spire-agent`, `nginx-blog`, `nginx-fe`, `certs` and `nginx-conf`. At this point we are ready to start configuring SPIRE and NGINX.
+Running `make` from within the [dupin](https://github.com/spiffe/spiffe-example/tree/master/dupin) directory will build a Docker image with everything you need to try this integration. Then, run `make demo` to open the environment where we can interact with NGINX with SPIFFE support. This will show six terminals: `spire-server`, `spire-agent`, `nginx-blog`, `nginx-fe`, `nginx-blog-conf` and `nginx-fe-conf`. At this point we are ready to start configuring SPIRE and NGINX.
 
 ### Step 2: Run SPIRE Server
 
@@ -257,4 +226,4 @@ In the same way, we use the `nginx-fe` terminal to launch the NGINX server actin
 
 At this point, NGINX is serving a sample page that should be accesible at http://localhost.
 
-Two additional terminals are provided to facilitate the use of this example. The `certs` terminal can be used to analyze the stored certificates (e.g. by running openssl commands to inspect the certificates). The `nginx-conf` terminal can be used to display and edit NGINX configurations. (**Hint**: try changing the allowed SPIFFE IDs in the `ssl_spiffe_accept` and `proxy_ssl_spiffe_accept` configuration directives :)
+Two additional terminals are provided to facilitate the use of this example. The `nginx-blog-conf` terminal can be used to display and edit NGINX front-end configurations. The `nginx-fe-conf` terminal can be used to display and edit NGINX front-end configurations. (**Hint**: try changing the allowed SPIFFE IDs in the `ssl_spiffe_accept` and `proxy_ssl_spiffe_accept` configuration directives :)

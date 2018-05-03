@@ -4,8 +4,8 @@ screen -t spire-server bash -c "./connect.sh 'cd /opt/spire/ && /bin/bash'"
 screen -t spire-agent bash -c "./connect.sh 'cd /opt/spire/ && /bin/bash'"
 screen -t nginx-blog bash -c "./connect.sh 'cd /opt/spiffe-nginx/ && /bin/bash'"
 screen -t nginx-fe bash -c "./connect.sh 'cd /opt/spiffe-nginx/ && /bin/bash'"
-screen -t certs bash -c "./connect.sh 'cd /certs/ && /bin/bash'"
-screen -t nginx-conf bash -c "./connect.sh 'cd /usr/local/nginx/ && /bin/bash'"
+screen -t nginx-blog-conf bash -c "./connect.sh 'cd /usr/local/nginx/ && /bin/bash'"
+screen -t nginx-fe-conf bash -c "./connect.sh 'cd /usr/local/nginx/ && /bin/bash'"
 
 mousetrack on
 rendition so wb
